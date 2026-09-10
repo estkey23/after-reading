@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>독후감 작성 및 제출 시스템 (초등용)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip for HWPX & Batch Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .font-myeongjo {
+            font-family: 'Nanum Myeongjo', '휴먼명조', serif;
+        }
+        /* HWP A4 Page Visual Styling */
+        .hwp-paper {
+            width: 100%;
+            max-width: 210mm;
+            min-height: 297mm;
+            background: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            padding-top: 20mm;
+            padding-bottom: 15mm;
+            padding-left: 20mm;
+            padding-right: 20mm;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .hwp-editor-content {
+            font-family: 'Nanum Myeongjo', '휴먼명조', serif;
+            font-size: 14pt;
+            line-height: 1.6; /* 줄간격 160% */
+            min-height: 220mm;
+            outline: none;
+            color: #111827;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .paper-margin-guide {
+            position: absolute;
+            border: 1px dashed #cbd5e1;
+            pointer-events: none;
+            top: 20mm;
+            bottom: 15mm;
+            left: 20mm;
+            right: 20mm;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navigation Bar -->
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            
+            <!-- Left Side: Logo & Mode Switch Tabs -->
+            <div class="flex items-center space-x-4 sm:space-x-6">
+                <div class="flex items-center space-x-2">
+                    <div class="bg-white/10 p-2 rounded-lg">
+                        <i data-lucide="book-open" class="w-5 h-5 text-indigo-200"></i>
+                    </div>
+                    <span class="font-bold text-base hidden sm:inline leading-tight">초등 독후감 작성 시스템</span>
+                </div>
+
+                <!-- Mode Switch Tabs -->
+                <div class="flex bg-indigo-800/80 p-1 rounded-xl text-xs sm:text-sm font-medium">
+                    <button id="tab-student" onclick="switchTab('student')" class="px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow font-semibold">
+                        <i data-lucide="pen-tool" class="w-4 h-4"></i>
+                        <span>학생용</span>
+                    </button>
+                    <button id="tab-teacher" onclick="switchTab('teacher')" class="px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white">
+                        <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                        <span>교사용</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Side: Download Dropdown & Submit Buttons in Student View -->
+            <div id="student-header-actions" class="flex items-center space-x-2">
+                <!-- Multi-format Download Dropdown -->
+                <div class="relative group">
+                    <button class="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow transition flex items-center space-x-1.5 border border-emerald-400 cursor-pointer">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>파일 다운로드</span>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 ml-0.5"></i>
+                    </button>
+                    <div class="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1 hidden group-hover:block group-focus-within:block z-50">
+                        <button onclick="downloadDocument('hwpx')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center space-x-2">
+                            <span class="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-bold">HWPX</span>
+                            <span>한글 XML 파일</span>
+                        </button>
+                        <button onclick="downloadDocument('hwp')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center space-x-2">
+                            <span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold">HWP</span>
+                            <span>한글 문서 호환</span>
+                        </button>
+                        <button onclick="downloadDocument('pdf')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center space-x-2">
+                            <span class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px] font-bold">PDF</span>
+                            <span>PDF 인쇄/저장</span>
+                        </button>
+                        <button onclick="downloadDocument('txt')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-800 flex items-center space-x-2">
+                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">TXT</span>
+                            <span>텍스트 파일</span>
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="submitToTeacher()" class="px-3.5 py-2 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-900 font-extrabold text-xs sm:text-sm rounded-xl shadow transition flex items-center space-x-1.5 border border-amber-300">
+                    <i data-lucide="send" class="w-4 h-4 text-slate-900"></i>
+                    <span class="hidden sm:inline">교사에게 온라인 제출</span>
+                    <span class="sm:hidden">제출</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Custom Toast Alert Floating Container -->
+    <div id="toast-container" class="fixed top-20 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- ================= STUDENT VIEW ================= -->
+        <div id="student-view" class="space-y-6">
+            
+            <!-- Format Alert Bar -->
+            <div class="bg-white border-l-4 border-indigo-500 p-4 rounded-r-xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div class="flex items-start space-x-3">
+                    <i data-lucide="check-circle-2" class="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0"></i>
+                    <div class="text-xs sm:text-sm text-slate-600 space-y-0.5">
+                        <span class="font-bold text-slate-800 block sm:inline">제출 서식 자동 적용 완료:</span>
+                        <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-medium">글자크기 휴먼명조 14pt</span>
+                        <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-medium">줄간격 160%</span>
+                        <span class="inline-block bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-medium">여백 상20mm, 하15mm, 좌우20mm</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3 shrink-0">
+                    <label class="text-xs text-slate-500 flex items-center cursor-pointer select-none pl-1">
+                        <input type="checkbox" id="toggle-margin-guide" class="rounded text-indigo-600 focus:ring-indigo-500 mr-1.5" onchange="toggleMarginGuide(this.checked)">
+                        여백 가이드
+                    </label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 transition-all duration-300">
+                <!-- Left Control & Meta Info Panel -->
+                <div id="left-sidebar-panel" class="lg:col-span-4 space-y-4 transition-all duration-300">
+                    
+                    <!-- Panel 1: Writer Info -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <button onclick="toggleCard('card-writer-body', 'card-writer-icon')" class="w-full p-4 bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between font-bold text-slate-800 text-sm">
+                            <span class="flex items-center">
+                                <i data-lucide="user-check" class="w-4 h-4 text-indigo-600 mr-2"></i>
+                                작성자 정보
+                            </span>
+                            <i id="card-writer-icon" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform rotate-180"></i>
+                        </button>
+                        
+                        <div id="card-writer-body" class="p-4 space-y-3 border-t border-slate-100">
+                            <!-- Fixed Elementary Division -->
+                            <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                                <span class="font-bold text-indigo-900 flex items-center">
+                                    <i data-lucide="award" class="w-3.5 h-3.5 text-indigo-600 mr-1"></i>
+                                    대상 부문
+                                </span>
+                                <span class="font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">초등부 (목표: A4 2~3매)</span>
+                                <input type="hidden" id="input-category" value="elem">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">초등학교 명</label>
+                                    <input type="text" id="input-school" placeholder="예: 한국초등학교" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">학년/반/번호</label>
+                                    <input type="text" id="input-grade" placeholder="예: 5학년 2반 12번" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">이름 *</label>
+                                <input type="text" id="input-author" placeholder="작성자 성명 입력" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">제출함 코드 (학급 코드) *</label>
+                                <input type="text" id="input-class-code" placeholder="예: 502반 또는 CLASS01" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase font-mono">
+                                <p class="text-[11px] text-slate-400 mt-1">선생님이 알려주신 제출함 코드를 입력하세요.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: Book Info & Review Title -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <button onclick="toggleCard('card-book-body', 'card-book-icon')" class="w-full p-4 bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between font-bold text-slate-800 text-sm">
+                            <span class="flex items-center">
+                                <i data-lucide="book" class="w-4 h-4 text-indigo-600 mr-2"></i>
+                                도서 정보 & 독후감 제목
+                            </span>
+                            <i id="card-book-icon" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform rotate-180"></i>
+                        </button>
+
+                        <div id="card-book-body" class="p-4 space-y-3 border-t border-slate-100">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">독후감 제목 *</label>
+                                <input type="text" id="input-title" oninput="syncToPreview()" placeholder="예: [독후감] '마당을 나온 암탉'을 읽고" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">도서명 *</label>
+                                    <input type="text" id="input-book-title" oninput="syncToPreview()" placeholder="예: 마당을 나온 암탉" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">저자 *</label>
+                                    <input type="text" id="input-book-author" oninput="syncToPreview()" placeholder="예: 황선미" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Metrics & Progress -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <button onclick="toggleCard('card-metrics-body', 'card-metrics-icon')" class="w-full p-4 bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between font-bold text-slate-800 text-sm">
+                            <span class="flex items-center">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-600 mr-2"></i>
+                                원고 분량 측정
+                            </span>
+                            <i id="card-metrics-icon" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-200 transform rotate-180"></i>
+                        </button>
+
+                        <div id="card-metrics-body" class="p-4 space-y-3 border-t border-slate-100">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-500">현재 글자 수</span>
+                                <span id="char-count-badge" class="text-xs bg-slate-100 text-indigo-700 font-bold px-2 py-1 rounded-md font-mono">0자 (공백포함)</span>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-medium mb-1">
+                                    <span class="text-slate-600">추정 A4 분량</span>
+                                    <span id="page-count-text" class="text-indigo-600 font-bold">0.0 매</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                    <div id="page-progress-bar" class="bg-indigo-600 h-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div id="target-guide-text" class="p-2.5 bg-slate-50 rounded-lg text-xs text-slate-600 border border-slate-100 leading-relaxed">
+                                초등부 기준: A4 2~3매 (권장 글자수 약 2,000자 ~ 3,500자)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Draft Storage Tools -->
+                    <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="saveLocalDraft()" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-xl transition flex items-center justify-center space-x-1">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                <span>임시 저장</span>
+                            </button>
+                            <button onclick="loadLocalDraft()" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-xl transition flex items-center justify-center space-x-1">
+                                <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+                                <span>불러오기</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Paper / Editor Canvas Panel -->
+                <div id="paper-editor-panel" class="lg:col-span-8 flex flex-col items-center overflow-x-auto pb-8 transition-all duration-300">
+                    
+                    <div class="w-full flex items-center justify-start mb-3">
+                        <button id="toggle-sidebar-btn" onclick="toggleSidebar()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow flex items-center space-x-1 cursor-pointer border border-indigo-500">
+                            <span id="sidebar-toggle-icon-text" class="font-extrabold">&lt;&lt;</span>
+                            <span id="sidebar-toggle-label">닫기</span>
+                        </button>
+                    </div>
+
+                    <div class="hwp-paper" id="hwp-paper-container">
+                        
+                        <!-- Visual Margin Lines -->
+                        <div id="margin-guide-box" class="paper-margin-guide hidden"></div>
+
+                        <!-- Paper Header Meta -->
+                        <div class="mb-6 pb-4 border-b-2 border-slate-800 space-y-3 font-myeongjo">
+                            <div class="text-center">
+                                <input type="text" id="preview-title" oninput="syncFromPreviewTitle()" placeholder="독후감 제목을 입력하세요" class="w-full text-center font-bold text-2xl border-none outline-none focus:bg-slate-50 rounded p-1 placeholder-slate-300">
+                            </div>
+                            <div class="flex justify-end items-center text-sm space-x-4 text-slate-700 pt-2">
+                                <div class="flex items-center space-x-1">
+                                    <span class="font-bold">도서명:</span>
+                                    <input type="text" id="preview-book-title" oninput="syncFromPreviewBookTitle()" placeholder="도서명" class="border-b border-dashed border-slate-300 outline-none w-36 text-slate-800 focus:bg-slate-50 px-1">
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="font-bold">저자:</span>
+                                    <input type="text" id="preview-book-author" oninput="syncFromPreviewBookAuthor()" placeholder="저자" class="border-b border-dashed border-slate-300 outline-none w-28 text-slate-800 focus:bg-slate-50 px-1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Main Textarea Editor (HWP Styled) -->
+                        <textarea id="hwp-editor" oninput="handleBodyInput()" placeholder="여기에 독후감 본문 내용을 작성하세요. (글자크기 휴먼명조 14pt, 줄간격 160% 자동 적용)&#10;&#10;[작성 팁]&#10;1. 책을 읽게 된 동기나 계기&#10;2. 주요 줄거리 및 인상 깊었던 장면&#10;3. 자신의 생각, 느낌, 삶에 준 영향과 다짐" class="hwp-editor-content w-full h-[600px] border-none resize-none focus:ring-0 bg-transparent placeholder-slate-300 p-0"></textarea>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= TEACHER VIEW ================= -->
+        <div id="teacher-view" class="space-y-6 hidden">
+            
+            <!-- Teacher Header / Class Code Filter -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                        <i data-lucide="folder-check" class="w-6 h-6 text-indigo-600 mr-2"></i>
+                        학생 제출 독후감 제출함
+                    </h2>
+                    <p class="text-xs text-slate-500">학생들이 제출한 제출함 코드로 검색하여 독후감을 조회하고 원하는 확장자(HWPX, HWP, PDF, TXT)로 다운로드합니다.</p>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <input type="text" id="teacher-search-code" placeholder="제출함 코드 입력 (예: 502반)" class="pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 uppercase font-mono w-56">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                    </div>
+                    <button onclick="fetchSubmissions()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl transition flex items-center space-x-1 shadow">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span>조회하기</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submissions List Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+                    <span class="text-sm font-bold text-slate-700">제출 목록 <span id="submission-count-badge" class="ml-1 bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-bold">0건</span></span>
+                    
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-slate-500 font-medium">일괄 저장 형식:</span>
+                        <select id="export-format-select" class="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500">
+                            <option value="hwpx" selected>HWPX (.hwpx)</option>
+                            <option value="hwp">HWP (.hwp)</option>
+                            <option value="pdf">PDF (.pdf)</option>
+                            <option value="txt">TXT (.txt)</option>
+                        </select>
+                        <button onclick="exportAllSubmissions()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center space-x-1 shadow-sm">
+                            <i data-lucide="file-archive" class="w-3.5 h-3.5"></i>
+                            <span>목록 일괄 다운로드 (.zip)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-100 text-slate-700 font-semibold text-xs uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="p-3.5 pl-5">소속 / 학년반</th>
+                                <th class="p-3.5">이름</th>
+                                <th class="p-3.5">독후감 제목</th>
+                                <th class="p-3.5">도서명 / 저자</th>
+                                <th class="p-3.5 text-center">글자수 (분량)</th>
+                                <th class="p-3.5 text-center">제출일시</th>
+                                <th class="p-3.5 text-center pr-5">다운로드 / 관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="submission-list-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="7" class="text-center py-12 text-slate-400 text-sm">
+                                    <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                                    제출함 코드를 입력 후 [조회하기] 버튼을 눌러주세요.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Submission Detail Modal for Teacher -->
+    <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl">
+                <div>
+                    <h3 id="modal-author-info" class="font-bold text-slate-800 text-lg">학생 독후감 상세 보기</h3>
+                    <p id="modal-meta-info" class="text-xs text-slate-500"></p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto space-y-4 font-myeongjo flex-1 bg-slate-50/50">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h2 id="modal-title" class="text-xl font-bold text-center text-slate-900 border-b pb-3"></h2>
+                    <div class="flex justify-end space-x-4 text-xs text-slate-600 font-sans">
+                        <span><strong>도서명:</strong> <span id="modal-book-title"></span></span>
+                        <span><strong>저자:</strong> <span id="modal-book-author"></span></span>
+                    </div>
+                    <div id="modal-content" class="text-slate-800 text-base leading-relaxed whitespace-pre-wrap pt-4 font-myeongjo"></div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white rounded-b-2xl">
+                <span id="modal-char-count" class="text-xs text-slate-500 font-sans"></span>
+                <div class="flex flex-wrap items-center space-x-1.5">
+                    <button onclick="downloadActiveModal('hwpx')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                        HWPX 다운
+                    </button>
+                    <button onclick="downloadActiveModal('hwp')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                        HWP 다운
+                    </button>
+                    <button onclick="downloadActiveModal('pdf')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                        PDF 출력
+                    </button>
+                    <button onclick="downloadActiveModal('txt')" class="px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                        TXT
+                    </button>
+                    <button onclick="closeModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition ml-1">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Script & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hwp-book-review-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "dummy",
+            authDomain: "dummy.firebaseapp.com",
+            projectId: "dummy",
+            storageBucket: "dummy.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:dummy"
+        };
+
+        let app, db, auth, currentUser = null;
+
+        async function initFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                    currentUser = userCredential.user;
+                } else {
+                    const userCredential = await signInAnonymously(auth);
+                    currentUser = userCredential.user;
+                }
+            } catch (err) {
+                console.warn("Firebase fallback mode active:", err);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            lucide.createIcons();
+            updatePageGauge();
+        });
+
+        // Global state for submissions
+        window.currentSubmissions = [];
+        window.activeModalSubmission = null;
+
+        // Custom Toast UI Helper
+        window.showToast = function(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgStyle = 'bg-slate-800 text-white';
+            let iconName = 'info';
+
+            if (type === 'success') {
+                bgStyle = 'bg-emerald-600 text-white';
+                iconName = 'check-circle';
+            } else if (type === 'error') {
+                bgStyle = 'bg-rose-600 text-white';
+                iconName = 'alert-circle';
+            } else if (type === 'warning') {
+                bgStyle = 'bg-amber-500 text-slate-900 font-medium';
+                iconName = 'alert-triangle';
+            }
+
+            toast.className = `pointer-events-auto flex items-center space-x-2 px-4 py-3 rounded-xl shadow-lg text-sm transition-all duration-300 transform translate-x-10 opacity-0 ${bgStyle}`;
+            toast.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 flex-shrink-0"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-x-10', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-10');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        };
+
+        // Collapsible Card Helper
+        window.toggleCard = function(bodyId, iconId) {
+            const body = document.getElementById(bodyId);
+            const icon = document.getElementById(iconId);
+            
+            if (body.classList.contains('hidden')) {
+                body.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            } else {
+                body.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+            }
+        };
+
+        // Left Toolbox Sidebar Toggle Helper
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('left-sidebar-panel');
+            const paperPanel = document.getElementById('paper-editor-panel');
+            const iconText = document.getElementById('sidebar-toggle-icon-text');
+            const label = document.getElementById('sidebar-toggle-label');
+
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden');
+                paperPanel.classList.remove('lg:col-span-12');
+                paperPanel.classList.add('lg:col-span-8');
+                if (iconText) iconText.innerText = '<<';
+                if (label) label.innerText = '닫기';
+            } else {
+                sidebar.classList.add('hidden');
+                paperPanel.classList.remove('lg:col-span-8');
+                paperPanel.classList.add('lg:col-span-12');
+                if (iconText) iconText.innerText = '>>';
+                if (label) label.innerText = '열기';
+            }
+        };
+
+        // Tab Switching Logic
+        window.switchTab = function(tab) {
+            const studentView = document.getElementById('student-view');
+            const teacherView = document.getElementById('teacher-view');
+            const btnStudent = document.getElementById('tab-student');
+            const btnTeacher = document.getElementById('tab-teacher');
+            const studentActions = document.getElementById('student-header-actions');
+
+            if (tab === 'student') {
+                studentView.classList.remove('hidden');
+                teacherView.classList.add('hidden');
+                studentActions.classList.remove('hidden');
+
+                btnStudent.className = "px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow font-semibold";
+                btnTeacher.className = "px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white";
+            } else {
+                studentView.classList.add('hidden');
+                teacherView.classList.remove('hidden');
+                studentActions.classList.add('hidden');
+
+                btnTeacher.className = "px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 bg-white text-indigo-900 shadow font-semibold";
+                btnStudent.className = "px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 text-indigo-200 hover:text-white";
+            }
+        };
+
+        // Form & Preview Synchronizers
+        window.syncToPreview = function() {
+            document.getElementById('preview-title').value = document.getElementById('input-title').value;
+            document.getElementById('preview-book-title').value = document.getElementById('input-book-title').value;
+            document.getElementById('preview-book-author').value = document.getElementById('input-book-author').value;
+        };
+
+        window.syncFromPreviewTitle = function() {
+            document.getElementById('input-title').value = document.getElementById('preview-title').value;
+        };
+
+        window.syncFromPreviewBookTitle = function() {
+            document.getElementById('input-book-title').value = document.getElementById('preview-book-title').value;
+        };
+
+        window.syncFromPreviewBookAuthor = function() {
+            document.getElementById('input-book-author').value = document.getElementById('preview-book-author').value;
+        };
+
+        window.toggleMarginGuide = function(show) {
+            const guide = document.getElementById('margin-guide-box');
+            if (show) guide.classList.remove('hidden');
+            else guide.classList.add('hidden');
+        };
+
+        // Text & Page Metrics Handler
+        window.handleBodyInput = function() {
+            const content = document.getElementById('hwp-editor').value;
+            const charCount = content.length;
+            document.getElementById('char-count-badge').innerText = `${charCount.toLocaleString()}자 (공백포함)`;
+
+            const approxPages = (charCount / 1200).toFixed(1);
+            document.getElementById('page-count-text').innerText = `${approxPages} 매`;
+
+            const targetMinPages = 2; // 초등부 기준 2매
+            const progress = Math.min(100, Math.round((approxPages / targetMinPages) * 100));
+            document.getElementById('page-progress-bar').style.width = `${progress}%`;
+        };
+
+        window.updatePageGauge = function() {
+            const guideText = document.getElementById('target-guide-text');
+            if (guideText) {
+                guideText.innerText = "초등부 기준: A4 2~3매 (권장 글자수 약 2,000자 ~ 3,500자)";
+            }
+            handleBodyInput();
+        };
+
+        // Local Storage Draft Save/Load
+        window.saveLocalDraft = function() {
+            const draft = {
+                category: 'elem',
+                school: document.getElementById('input-school').value,
+                grade: document.getElementById('input-grade').value,
+                author: document.getElementById('input-author').value,
+                classCode: document.getElementById('input-class-code').value,
+                title: document.getElementById('input-title').value,
+                bookTitle: document.getElementById('input-book-title').value,
+                bookAuthor: document.getElementById('input-book-author').value,
+                content: document.getElementById('hwp-editor').value,
+                updatedAt: new Date().toISOString()
+            };
+            try {
+                localStorage.setItem('hwp_review_draft', JSON.stringify(draft));
+                showToast('작성 중인 내용이 브라우저에 임시 저장되었습니다.', 'success');
+            } catch(e) {
+                showToast('임시 저장 중 오류가 발생했습니다.', 'error');
+            }
+        };
+
+        window.loadLocalDraft = function() {
+            try {
+                const saved = localStorage.getItem('hwp_review_draft');
+                if (!saved) {
+                    showToast('저장된 임시 원고가 없습니다.', 'warning');
+                    return;
+                }
+                const draft = JSON.parse(saved);
+                document.getElementById('input-school').value = draft.school || '';
+                document.getElementById('input-grade').value = draft.grade || '';
+                document.getElementById('input-author').value = draft.author || '';
+                document.getElementById('input-class-code').value = draft.classCode || '';
+                document.getElementById('input-title').value = draft.title || '';
+                document.getElementById('input-book-title').value = draft.bookTitle || '';
+                document.getElementById('input-book-author').value = draft.bookAuthor || '';
+                document.getElementById('hwp-editor').value = draft.content || '';
+
+                syncToPreview();
+                updatePageGauge();
+                showToast('임시 저장된 원고를 성공적으로 불러왔습니다.', 'success');
+            } catch(e) {
+                showToast('원고를 불러오는 도중 오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // ================= DOCUMENT EXPORT ENGINES =================
+
+        // Helper: Escape XML Special Characters
+        function escapeXml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe.replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"': return '&quot;';
+                }
+            });
+        }
+
+        // 1. Fixed HWPX Zip File Generator Core Logic
+        window.createHWPXBlob = async function(data) {
+            const zip = new JSZip();
+
+            const title = data.title || '무제 독후감';
+            const bookTitle = data.bookTitle || '';
+            const bookAuthor = data.bookAuthor || '';
+            const author = data.author || '';
+            const school = data.school || '';
+            const grade = data.grade || '';
+            const content = data.content || '';
+
+            zip.file("mimetype", "application/hwp+zip", { compression: "STORE" });
+
+            const versionXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<hv:HCFVersion xmlns:hv="http://www.hancom.co.kr/hwpml/2011/version" targetApplication="WORDPROCESSOR" major="5" minor="1" micro="0" buildNumber="1" os="1" xmlVersion="1.0" application="Hancom Office Hangul" appVersion="11.0.0.0"/>`;
+            zip.file("version.xml", versionXml);
+
+            const containerXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="Contents/content.hpf" media-type="application/hwpdoc-package+xml"/>
+  </rootfiles>
+</container>`;
+            zip.folder("META-INF").file("container.xml", containerXml);
+
+            const manifestXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<manifest xmlns="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
+  <file-entry media-type="application/hwp+zip" full-path="/"/>
+  <file-entry media-type="application/xml" full-path="Contents/content.hpf"/>
+  <file-entry media-type="application/xml" full-path="Contents/header.xml"/>
+  <file-entry media-type="application/xml" full-path="Contents/section0.xml"/>
+  <file-entry media-type="application/xml" full-path="settings.xml"/>
+</manifest>`;
+            zip.folder("META-INF").file("manifest.xml", manifestXml);
+
+            const settingsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ha:settings xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app">
+  <ha:caretPosition list="0" para="0" pos="0"/>
+</ha:settings>`;
+            zip.file("settings.xml", settingsXml);
+
+            const contentHpf = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="db-id" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:language>ko</dc:language>
+  </metadata>
+  <manifest>
+    <item id="header" href="header.xml" media-type="application/xml"/>
+    <item id="section0" href="section0.xml" media-type="application/xml"/>
+    <item id="settings" href="../settings.xml" media-type="application/xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="header"/>
+    <itemref idref="section0"/>
+  </spine>
+</package>`;
+            zip.folder("Contents").file("content.hpf", contentHpf);
+
+            const headerXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" version="1.0">
+  <hh:beginNum page="1" footnote="1" endnote="1" pic="1" tbl="1" equation="1"/>
+  <hh:refList>
+    <hh:fontfaces>
+      <hh:fontface id="0" lang="ko" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="1" lang="latin" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="2" lang="hanja" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="3" lang="japanese" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="4" lang="other" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="5" lang="symbol" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+      <hh:fontface id="6" lang="user" name="휴먼명조"><hh:font type="TTF" name="휴먼명조"/></hh:fontface>
+    </hh:fontfaces>
+    <hh:borderFills>
+      <hh:borderFill id="1" threeD="0" shadow="0" centerLine="NONE">
+        <hh:slash type="NONE"/><hh:backSlash type="NONE"/>
+        <hh:leftBorder type="NONE" width="0.1mm" color="#000000"/>
+        <hh:rightBorder type="NONE" width="0.1mm" color="#000000"/>
+        <hh:topBorder type="NONE" width="0.1mm" color="#000000"/>
+        <hh:bottomBorder type="NONE" width="0.1mm" color="#000000"/>
+      </hh:borderFill>
+    </hh:borderFills>
+    <hh:charProperties>
+      <hh:charPr id="0" height="1800" textColor="#000000" shadeColor="NONE" useFont="0" bold="1" fontRef="0"/>
+      <hh:charPr id="1" height="1400" textColor="#000000" shadeColor="NONE" useFont="0" bold="0" fontRef="0"/>
+      <hh:charPr id="2" height="1100" textColor="#333333" shadeColor="NONE" useFont="0" bold="0" fontRef="0"/>
+    </hh:charProperties>
+    <hh:paraProperties>
+      <hh:paraPr id="0" align="CENTER">
+        <hh:lineSpacing type="PERCENT" value="160"/>
+      </hh:paraPr>
+      <hh:paraPr id="1" align="RIGHT">
+        <hh:lineSpacing type="PERCENT" value="160"/>
+      </hh:paraPr>
+      <hh:paraPr id="2" align="JUSTIFY">
+        <hh:lineSpacing type="PERCENT" value="160"/>
+      </hh:paraPr>
+    </hh:paraProperties>
+    <hh:styles>
+      <hh:style id="0" type="PARA" name="바탕글" engName="Normal" paraPrRef="2" charPrRef="1"/>
+    </hh:styles>
+  </hh:refList>
+</hh:head>`;
+            zip.folder("Contents").file("header.xml", headerXml);
+
+            const paragraphs = content.split('\n');
+            let bodyXmlRuns = '';
+
+            paragraphs.forEach((line, index) => {
+                const escapedLine = escapeXml(line);
+                bodyXmlRuns += `<hp:p id="${index + 3}" paraPrIDRef="2" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>${escapedLine}</hp:t></hp:run></hp:p>\n`;
+            });
+
+            const schoolGradeInfo = [school, grade].filter(Boolean).join(' ');
+            const authorMeta = schoolGradeInfo ? `${author} (${schoolGradeInfo})` : author;
+
+            const section0Xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head">
+  <hp:p id="0" paraPrIDRef="0" styleIDRef="0">
+    <hp:run charPrIDRef="0">
+      <hp:secPr id="0" grid="0">
+        <hp:grid lineGrid="0" charGrid="0"/>
+        <hp:startNum pageStartsOn="BOTH" page="1" pic="1" tbl="1" equation="1"/>
+        <hp:pagePr width="59528" height="84188" autoExtend="0" landscape="0">
+          <hp:margin top="5669" bottom="4252" left="5669" right="5669" header="0" footer="0" gutter="0"/>
+        </hp:pagePr>
+        <hp:footNotePr>
+          <hp:autoNumFormat type="ARABIC"/>
+          <hp:noteLine length="-1" type="SOLID" width="0.12mm" color="#000000"/>
+          <hp:noteSpacing betweenNotes="566" aboveLine="850" belowLine="566"/>
+          <hp:numbering type="CONTINUOUS"/>
+        </hp:footNotePr>
+        <hp:endNotePr>
+          <hp:autoNumFormat type="ARABIC"/>
+          <hp:noteLine length="-1" type="SOLID" width="0.12mm" color="#000000"/>
+          <hp:noteSpacing betweenNotes="566" aboveLine="850" belowLine="566"/>
+          <hp:numbering type="CONTINUOUS"/>
+        </hp:endNotePr>
+        <hp:pageBorderFill type="BOTH" borderFillIDRef="1" fillArea="PAPER">
+          <hp:offset left="1417" right="1417" top="1417" bottom="1417"/>
+        </hp:pageBorderFill>
+      </hp:secPr>
+      <hp:t>${escapeXml(title)}</hp:t>
+    </hp:run>
+  </hp:p>
+  <hp:p id="1" paraPrIDRef="1" styleIDRef="0">
+    <hp:run charPrIDRef="2">
+      <hp:t>도서명: ${escapeXml(bookTitle)}  |  저자: ${escapeXml(bookAuthor)}  |  작성자: ${escapeXml(authorMeta)}</hp:t>
+    </hp:run>
+  </hp:p>
+  <hp:p id="2" paraPrIDRef="2" styleIDRef="0">
+    <hp:run charPrIDRef="1"><hp:t></hp:t></hp:run>
+  </hp:p>
+  ${bodyXmlRuns}
+</hs:sec>`;
+            zip.folder("Contents").file("section0.xml", section0Xml);
+
+            return await zip.generateAsync({ type: "blob", mimeType: "application/hwp+zip" });
+        };
+
+        // 2. HWP Document Exporter
+        window.createHWPBlob = function(data) {
+            const title = data.title || '무제 독후감';
+            const bookTitle = data.bookTitle || '';
+            const bookAuthor = data.bookAuthor || '';
+            const author = data.author || '';
+            const school = data.school || '';
+            const grade = data.grade || '';
+            const content = data.content || '';
+            const schoolGradeInfo = [school, grade].filter(Boolean).join(' ');
+            const authorMeta = schoolGradeInfo ? `${author} (${schoolGradeInfo})` : author;
+
+            const htmlContent = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:h="http://www.hancom.co.kr/hwpml/2011/paragraph">
+<head>
+<meta charset="utf-8">
+<title>${escapeXml(title)}</title>
+<style>
+    @page {
+        size: A4;
+        margin: 20mm 20mm 15mm 20mm;
+    }
+    body {
+        font-family: '휴먼명조', 'Nanum Myeongjo', serif;
+        font-size: 14pt;
+        line-height: 1.6;
+        color: #000;
+        margin: 0;
+        padding: 0;
+    }
+    .doc-title {
+        font-size: 18pt;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 12pt;
+    }
+    .doc-meta {
+        font-size: 11pt;
+        text-align: right;
+        color: #333;
+        border-bottom: 1px solid #000;
+        padding-bottom: 8pt;
+        margin-bottom: 20pt;
+    }
+    .doc-body {
+        white-space: pre-wrap;
+        text-align: justify;
+        word-break: break-all;
+    }
+</style>
+</head>
+<body>
+    <div class="doc-title">${escapeXml(title)}</div>
+    <div class="doc-meta">
+        도서명: ${escapeXml(bookTitle)} &nbsp;|&nbsp; 저자: ${escapeXml(bookAuthor)} &nbsp;|&nbsp; 작성자: ${escapeXml(authorMeta)}
+    </div>
+    <div class="doc-body">${escapeXml(content)}</div>
+</body>
+</html>`;
+
+            return new Blob(['\ufeff' + htmlContent], { type: 'application/haansofthwp;charset=utf-8' });
+        };
+
+        // 3. Plain Text Blob Exporter
+        window.createTXTBlob = function(data) {
+            const title = data.title || '무제 독후감';
+            const bookTitle = data.bookTitle || '';
+            const bookAuthor = data.bookAuthor || '';
+            const author = data.author || '';
+            const school = data.school || '';
+            const grade = data.grade || '';
+            const content = data.content || '';
+            const schoolGradeInfo = [school, grade].filter(Boolean).join(' ');
+
+            const text = `==================================================
+제목: ${title}
+도서명: ${bookTitle}
+저자: ${bookAuthor}
+작성자: ${author} ${schoolGradeInfo ? '(' + schoolGradeInfo + ')' : ''}
+==================================================
+
+${content}
+`;
+            return new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
+        };
+
+        // 4. PDF Print / Download Renderer
+        window.openPDFPrintWindow = function(data) {
+            const title = data.title || '무제 독후감';
+            const bookTitle = data.bookTitle || '';
+            const bookAuthor = data.bookAuthor || '';
+            const author = data.author || '';
+            const school = data.school || '';
+            const grade = data.grade || '';
+            const content = data.content || '';
+            const schoolGradeInfo = [school, grade].filter(Boolean).join(' ');
+            const authorMeta = schoolGradeInfo ? `${author} (${schoolGradeInfo})` : author;
+
+            const printWin = window.open('', '_blank');
+            if (!printWin) {
+                showToast('팝업 차단이 설정되어 있습니다. 팝업 허용 후 다시 시도해 주세요.', 'error');
+                return;
+            }
+
+            printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>${escapeXml(title)} - PDF 출력</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm 20mm 15mm 20mm;
+        }
+        body {
+            font-family: 'Nanum Myeongjo', '휴먼명조', serif;
+            font-size: 14pt;
+            line-height: 1.6;
+            color: #111;
+            padding: 20px;
+        }
+        .title {
+            font-size: 20pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .meta {
+            font-size: 11pt;
+            text-align: right;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+            color: #444;
+        }
+        .content {
+            white-space: pre-wrap;
+            text-align: justify;
+            word-break: break-all;
+        }
+        @media print {
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="title">${escapeXml(title)}</div>
+    <div class="meta">
+        <strong>도서명:</strong> ${escapeXml(bookTitle)} &nbsp;|&nbsp; 
+        <strong>저자:</strong> ${escapeXml(bookAuthor)} &nbsp;|&nbsp; 
+        <strong>작성자:</strong> ${escapeXml(authorMeta)}
+    </div>
+    <div class="content">${escapeXml(content)}</div>
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        };
+    <\/script>
+</body>
+</html>`);
+            printWin.document.close();
+        };
+
+        // ================= UNIFIED DOWNLOAD DISPATCHERS =================
+
+        window.downloadDocument = async function(format = 'hwpx') {
+            const title = document.getElementById('input-title').value.trim() || '독후감';
+            const bookTitle = document.getElementById('input-book-title').value.trim();
+            const bookAuthor = document.getElementById('input-book-author').value.trim();
+            const author = document.getElementById('input-author').value.trim() || '학생';
+            const school = document.getElementById('input-school').value.trim();
+            const grade = document.getElementById('input-grade').value.trim();
+            const content = document.getElementById('hwp-editor').value;
+
+            if (!content.trim()) {
+                showToast('독후감 본문 내용을 입력해 주세요.', 'warning');
+                return;
+            }
+
+            const docData = { title, bookTitle, bookAuthor, author, school, grade, content };
+            await triggerSingleDownload(docData, format);
+        };
+
+        async function triggerSingleDownload(item, format = 'hwpx') {
+            const cleanTitle = (item.title || '독후감').replace(/[/\\?%*:|"<>]/g, '_');
+            const cleanAuthor = (item.author || '학생').replace(/[/\\?%*:|"<>]/g, '_');
+
+            if (format === 'pdf') {
+                showToast('PDF 인쇄 창을 생성 중입니다...', 'info');
+                openPDFPrintWindow(item);
+                return;
+            }
+
+            let blob, extension;
+
+            if (format === 'hwpx') {
+                showToast('HWPX 파일 생성 중입니다...', 'info');
+                blob = await createHWPXBlob(item);
+                extension = 'hwpx';
+            } else if (format === 'hwp') {
+                showToast('HWP 파일 생성 중입니다...', 'info');
+                blob = createHWPBlob(item);
+                extension = 'hwp';
+            } else if (format === 'txt') {
+                showToast('TXT 파일 생성 중입니다...', 'info');
+                blob = createTXTBlob(item);
+                extension = 'txt';
+            }
+
+            const fileName = `${cleanTitle}_${cleanAuthor}.${extension}`;
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast(`'${fileName}' 다운로드가 시작되었습니다.`, 'success');
+        }
+
+        // Submit Review to Firestore
+        window.submitToTeacher = async function() {
+            const author = document.getElementById('input-author').value.trim();
+            const classCode = document.getElementById('input-class-code').value.trim().toUpperCase();
+            const title = document.getElementById('input-title').value.trim();
+            const bookTitle = document.getElementById('input-book-title').value.trim();
+            const bookAuthor = document.getElementById('input-book-author').value.trim();
+            const content = document.getElementById('hwp-editor').value.trim();
+            const school = document.getElementById('input-school').value.trim();
+            const grade = document.getElementById('input-grade').value.trim();
+            const category = 'elem';
+
+            if (!author) {
+                showToast('작성자 이름을 입력해 주세요.', 'warning');
+                return;
+            }
+            if (!classCode) {
+                showToast('제출함 코드(학급 코드)를 입력해 주세요.', 'warning');
+                return;
+            }
+            if (!title) {
+                showToast('독후감 제목을 입력해 주세요.', 'warning');
+                return;
+            }
+            if (!content) {
+                showToast('독후감 본문을 입력해 주세요.', 'warning');
+                return;
+            }
+
+            const submissionData = {
+                author,
+                classCode,
+                title,
+                bookTitle,
+                bookAuthor,
+                content,
+                school,
+                grade,
+                category,
+                charCount: content.length,
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                if (db && currentUser) {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    await addDoc(colRef, submissionData);
+                    showToast(`[제출 완료] 독후감이 성공적으로 제출되었습니다! (코드: ${classCode})`, 'success');
+                } else {
+                    const localSubmissions = JSON.parse(localStorage.getItem('hwp_local_submissions') || '[]');
+                    localSubmissions.push(submissionData);
+                    localStorage.setItem('hwp_local_submissions', JSON.stringify(localSubmissions));
+                    showToast(`[오프라인 제출 완료] 교사 화면에서 '${classCode}' 코드로 조회 가능합니다.`, 'success');
+                }
+            } catch(err) {
+                console.error("Submission error:", err);
+                showToast('제출 도중 오류가 발생했습니다. 다시 시도해 주세요.', 'error');
+            }
+        };
+
+        // Teacher View: Fetch Submissions
+        window.fetchSubmissions = async function() {
+            const classCode = document.getElementById('teacher-search-code').value.trim().toUpperCase();
+            const tbody = document.getElementById('submission-list-body');
+
+            if (!classCode) {
+                showToast('조회할 제출함 코드를 입력해 주세요.', 'warning');
+                return;
+            }
+
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">제출 데이터를 불러오는 중...</td></tr>`;
+
+            let results = [];
+
+            try {
+                if (db) {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    const snapshot = await getDocs(colRef);
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        if (data.classCode === classCode) {
+                            results.push({ id: docSnap.id, ...data });
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn("Firestore fetch error, fallback to local:", err);
+            }
+
+            const localSubmissions = JSON.parse(localStorage.getItem('hwp_local_submissions') || '[]');
+            localSubmissions.filter(s => s.classCode === classCode).forEach(s => results.push(s));
+
+            results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            window.currentSubmissions = results;
+
+            document.getElementById('submission-count-badge').innerText = `${results.length}건`;
+
+            if (results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-400">제출함 코드 [${classCode}]에 등록된 독후감이 없습니다.</td></tr>`;
+                showToast(`제출함 [${classCode}]에 제출된 독후감이 없습니다.`, 'warning');
+                return;
+            }
+
+            tbody.innerHTML = results.map((item, idx) => `
+                <tr class="hover:bg-indigo-50/50 transition">
+                    <td class="p-3.5 pl-5 font-medium text-slate-800">${item.school || '-'} ${item.grade || ''}</td>
+                    <td class="p-3.5 font-bold text-indigo-900">${item.author}</td>
+                    <td class="p-3.5 font-medium text-slate-800 cursor-pointer hover:underline" onclick="openModal(${idx})">${item.title}</td>
+                    <td class="p-3.5 text-xs text-slate-500">${item.bookTitle || '-'} / ${item.bookAuthor || '-'}</td>
+                    <td class="p-3.5 text-center font-mono text-xs">${(item.charCount || 0).toLocaleString()}자</td>
+                    <td class="p-3.5 text-center text-xs text-slate-400">${new Date(item.createdAt).toLocaleDateString('ko-KR')} ${new Date(item.createdAt).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'})}</td>
+                    <td class="p-3.5 text-center pr-5">
+                        <div class="flex items-center justify-center space-x-1.5">
+                            <button onclick="openModal(${idx})" class="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-lg transition" title="상세보기">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="downloadSingleItem(${idx}, 'hwpx')" class="px-2 py-1 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded transition" title="HWPX 다운로드">
+                                HWPX
+                            </button>
+                            <button onclick="downloadSingleItem(${idx}, 'hwp')" class="px-2 py-1 text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition" title="HWP 다운로드">
+                                HWP
+                            </button>
+                            <button onclick="downloadSingleItem(${idx}, 'pdf')" class="px-2 py-1 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold rounded transition" title="PDF 출력">
+                                PDF
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            lucide.createIcons();
+            showToast(`${results.length}건의 제출물이 조회되었습니다.`, 'success');
+        };
+
+        window.openModal = function(index) {
+            const item = window.currentSubmissions[index];
+            if (!item) return;
+            window.activeModalSubmission = item;
+
+            document.getElementById('modal-author-info').innerText = `${item.school || ''} ${item.grade || ''} ${item.author} 학생의 독후감`;
+            document.getElementById('modal-meta-info').innerText = `제출일: ${new Date(item.createdAt).toLocaleString('ko-KR')} | 제출함 코드: ${item.classCode}`;
+            document.getElementById('modal-title').innerText = item.title;
+            document.getElementById('modal-book-title').innerText = item.bookTitle || '미지정';
+            document.getElementById('modal-book-author').innerText = item.bookAuthor || '미지정';
+            document.getElementById('modal-content').innerText = item.content;
+            document.getElementById('modal-char-count').innerText = `총 글자수: ${item.charCount ? item.charCount.toLocaleString() : 0}자 (약 ${(item.charCount / 1200).toFixed(1)}매)`;
+
+            document.getElementById('detail-modal').classList.remove('hidden');
+        };
+
+        window.closeModal = function() {
+            document.getElementById('detail-modal').classList.add('hidden');
+            window.activeModalSubmission = null;
+        };
+
+        window.downloadSingleItem = function(index, format) {
+            const item = window.currentSubmissions[index];
+            if (item) {
+                triggerSingleDownload(item, format);
+            }
+        };
+
+        window.downloadActiveModal = function(format) {
+            if (window.activeModalSubmission) {
+                triggerSingleDownload(window.activeModalSubmission, format);
+            }
+        };
+
+        // Batch Exporter in Selected Format (.zip)
+        window.exportAllSubmissions = async function() {
+            if (!window.currentSubmissions || window.currentSubmissions.length === 0) {
+                showToast('일괄 다운로드할 제출물이 없습니다.', 'warning');
+                return;
+            }
+
+            const format = document.getElementById('export-format-select').value;
+
+            if (format === 'pdf') {
+                showToast('PDF는 브라우저 특성상 한 명씩 출력/저장해주시기 바랍니다.', 'warning');
+                return;
+            }
+
+            try {
+                showToast(`전체 제출물을 ${format.toUpperCase()} 포맷 ZIP 파일로 압축 중입니다...`, 'info');
+                const zip = new JSZip();
+
+                for (let i = 0; i < window.currentSubmissions.length; i++) {
+                    const item = window.currentSubmissions[i];
+                    let blob;
+
+                    if (format === 'hwpx') {
+                        blob = await createHWPXBlob(item);
+                    } else if (format === 'hwp') {
+                        blob = createHWPBlob(item);
+                    } else if (format === 'txt') {
+                        blob = createTXTBlob(item);
+                    }
+
+                    const cleanTitle = (item.title || '독후감').substring(0, 15).replace(/[/\\?%*:|"<>]/g, '_');
+                    const cleanAuthor = (item.author || '학생').replace(/[/\\?%*:|"<>]/g, '_');
+                    const fileName = `${i + 1}_${cleanAuthor}_${cleanTitle}.${format}`;
+                    zip.file(fileName, blob);
+                }
+
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(zipBlob);
+                link.download = `독후감_일괄제출물_${format.toUpperCase()}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast(`전체 ${format.toUpperCase()} 파일 압축 다운로드가 완료되었습니다.`, 'success');
+            } catch(e) {
+                console.error(e);
+                showToast('일괄 파일 처리 중 오류가 발생했습니다.', 'error');
+            }
+        };
+    </script>
+</body>
+</html>
